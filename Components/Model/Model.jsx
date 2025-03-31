@@ -57,7 +57,13 @@ const Model = ({ openBox, title, address, head, info, smallInfo, image, function
 
             {/* Submit and Cancel Buttons */}
             <div className={Style.Model_box_right_name_btn}>
-              <button onClick={() => functionName({ name, accountAddress })}>
+              <button onClick={() => {
+                if(name.trim() === "") {
+                  alert("Please enter your name");
+                  return;
+                }
+                functionName({ name, accountAddress })
+              }}>
                 <Image src={images.send} alt="send" width={30} height={30} />
                 Submit
               </button>

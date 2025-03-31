@@ -79,7 +79,7 @@ const NavBar = () => {
                       width={20}
                       height={20}/>
                       {""}
-                      <small>{userName ||"Create Account"}</small>
+                      <small>{userName || "Create Account"}</small>
                     </button>
                   )}
                 </div>
@@ -106,7 +106,7 @@ const NavBar = () => {
                 />
             </div>
          )}
-         {error=="" ? "":<Error error={error} />}
+         {error && error !== "Please Install and Connect Your Wallet" ? <Error error={error} /> : null}
 
       </div>
    );

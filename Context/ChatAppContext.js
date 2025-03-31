@@ -21,26 +21,58 @@ export const ChatAppProvider=({children})=>{
 
     const router=useRouter();
 
+    // Set the user name with local storage for persistence
+    const updateUserName = (name) => {
+        setUserName(name);
+        if (name) {
+            localStorage.setItem('chatx_username', name);
+        }
+    };
+
     //fetch data time of page load
     const fetchData=async()=>{
         try {
+            // Check if ethereum is available first
+            if (!window.ethereum) {
+                console.log("Please install MetaMask");
+                return;
+            }
+
             //get contract
             const contract=await connectingWithContract();
             //get account
             const connectAccount=await connectWallet();
-            setAccount(connectAccount);
-            //get username
-            const userName = await contract.getUsername(connectAccount);
-            setUserName(userName);
-            //get my friend list
-            const friendLists=await contract.getMyFriendList();
-            setFriendLists(friendLists);
-            //get all app user list
-            const userList=await contract.getAllAppUser();
-            setUserLists(userList);
+            
+            // Only proceed if we have an account
+            if(connectAccount) {
+                setAccount(connectAccount);
+                
+                // First check local storage
+                const storedName = localStorage.getItem('chatx_username');
+                if (storedName) {
+                    setUserName(storedName);
+                } else {
+                    //get username from contract
+                    const userName = await contract.getUsername(connectAccount);
+                    if (userName) {
+                        updateUserName(userName);
+                    }
+                }
+                
+                //get my friend list
+                const friendLists=await contract.getMyFriendList();
+                setFriendLists(friendLists);
+                //get all app user list
+                const userList=await contract.getAllAppUser();
+                setUserLists(userList);
+            }
             
         } catch (error) {
-            setError("Please Install and Connect Your Wallet");
+            console.log("Error in fetchData:", error);
+            // Only set error if it's not related to a missing wallet connection
+            if (error.message && !error.message.includes("user rejected") && !error.message.includes("User denied")) {
+                setError("Please Install and Connect Your Wallet");
+            }
         }
     };
     useEffect(()=>{
@@ -67,6 +99,7 @@ export const ChatAppProvider=({children})=>{
             setLoading(true);
             await getCreatedUser.wait();
             setLoading(false);
+            updateUserName(name);
             window.location.reload();
         } catch (error) {
             setError("Error while creating your account.Please reload browser")
