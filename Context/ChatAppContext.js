@@ -21,63 +21,71 @@ export const ChatAppProvider=({children})=>{
 
     const router=useRouter();
 
-    // Set the user name with local storage for persistence
-    const updateUserName = (name) => {
-        setUserName(name);
-        if (name) {
-            localStorage.setItem('chatx_username', name);
-        }
-    };
-
     //fetch data time of page load
     const fetchData=async()=>{
         try {
-            // Check if ethereum is available first
             if (!window.ethereum) {
-                console.log("Please install MetaMask");
+                setError("Please Install and Connect Your Wallet");
                 return;
             }
-
-            //get contract
-            const contract=await connectingWithContract();
+            
             //get account
             const connectAccount=await connectWallet();
+            if (!connectAccount) {
+                setError("Please connect your wallet");
+                return;
+            }
+            setAccount(connectAccount);
             
-            // Only proceed if we have an account
-            if(connectAccount) {
-                setAccount(connectAccount);
-                
-                // First check local storage
-                const storedName = localStorage.getItem('chatx_username');
-                if (storedName) {
-                    setUserName(storedName);
-                } else {
-                    //get username from contract
-                    const userName = await contract.getUsername(connectAccount);
-                    if (userName) {
-                        updateUserName(userName);
-                    }
+            //get contract
+            const contract=await connectingWithContract();
+            if (!contract) {
+                setError("Error connecting to contract");
+                return;
+            }
+            
+            try {
+                //get username
+                const userName = await contract.getUsername(connectAccount);
+                if (userName) {
+                    setUserName(userName);
                 }
-                
-                //get my friend list
-                const friendLists=await contract.getMyFriendList();
-                setFriendLists(friendLists);
+            } catch (nameError) {
+                console.log("No username found - user hasn't created account yet");
+            }
+            
+            try {
                 //get all app user list
-                const userList=await contract.getAllAppUser();
-                setUserLists(userList);
+                const userList = await contract.getAllAppUsers();
+                if (userList) {
+                    setUserLists(userList);
+                }
+            } catch (error) {
+                console.log("Error fetching user list:", error);
+                setUserLists([]);
+            }
+            
+            try {
+                //get my friend list
+                const friendLists = await contract.getMyFriendList();
+                if (friendLists) {
+                    setFriendLists(friendLists);
+                }
+            } catch (error) {
+                console.log("Error fetching friend list:", error);
+                setFriendLists([]);
             }
             
         } catch (error) {
-            console.log("Error in fetchData:", error);
-            // Only set error if it's not related to a missing wallet connection
-            if (error.message && !error.message.includes("user rejected") && !error.message.includes("User denied")) {
-                setError("Please Install and Connect Your Wallet");
-            }
+            console.error("Fetch data error:", error);
+            setError("Please Install and Connect Your Wallet");
         }
     };
+    
     useEffect(()=>{
         fetchData();
     },[]);
+    
     //read message
     const readMessage=async(friendAddress)=>{
         try {
@@ -88,28 +96,55 @@ export const ChatAppProvider=({children})=>{
             setError("Currently You have no Message")
         }
     }
-   // create account
+    
+    // create account
     const createAccount=async ({name,accountAddress})=>{
         try {
-            // if (name || accountAddress)
-            //     return setError("Name and AccountAddress,cannot be empty");
+            if (!name || name.trim() === "") {
+                setError("Name cannot be empty");
+                return;
+            }
 
+            setLoading(true);
             const contract=await connectingWithContract();
             const getCreatedUser=await contract.createAccount(name);
-            setLoading(true);
             await getCreatedUser.wait();
+            
+            // Set the username immediately
+            setUserName(name);
+            
+            // Update the user list
+            try {
+                const userList = await contract.getAllAppUsers();
+                if (userList) {
+                    setUserLists(userList);
+                }
+            } catch (listError) {
+                console.log("Error fetching updated user list:", listError);
+            }
+            
             setLoading(false);
-            updateUserName(name);
-            window.location.reload();
+            setError("");
+            
+            // Close any open dialogs by dispatching a custom event
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('accountCreated'));
+            }
         } catch (error) {
-            setError("Error while creating your account.Please reload browser")
+            console.error("Create account error:", error);
+            if (error.message && error.message.includes("User already exists")) {
+                setError("This wallet address already has an account");
+            } else {
+                setError("Error while creating your account. Please try again.");
+            }
+            setLoading(false);
         }
     }
 
     //add your friend
     const addFriends=async({name,accountAddress})=>{
         try {
-            if(name||accountAddress) return setError("Please provide name and account address");
+            // if(name||accountAddress) return setError("Please provide name and account address");
             const contract=await connectingWithContract();
             const addMyFriend=await contract.addFriend(accountAddress,name);
             setLoading(true);
@@ -151,6 +186,7 @@ export const ChatAppProvider=({children})=>{
             CheckIfWalletConnected,
             userName,
             friendLists,
+            friendMsg,
             loading,userLists,error,currentUserAddress,currentUserName,
 
         }}>

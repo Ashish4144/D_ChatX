@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import Image from "next/image";
 import Link from "next/link";
 
@@ -10,7 +10,7 @@ import images from "../../assets";
 
 const NavBar = () => {
    const menuItems = [
-      { menu: "ALL USERS", link: "/" },
+      { menu: "ALL USERS", link: "/alluser" },
       { menu: "CHAT", link: "/" },
       { menu: "CONTACT", link: "/" },
       { menu: "SETTINGS", link: "/" },
@@ -23,7 +23,20 @@ const NavBar = () => {
    const [open, setOpen] = useState(false);
    const [openModel, setOpenModel] = useState(false);
 
-   const { account, userName, connectWallet,createAccount, error } = useContext(ChatAppContext);
+   const { account, userName, connectWallet, createAccount, error } = useContext(ChatAppContext);
+
+   // Listen for account creation events
+   useEffect(() => {
+      const handleAccountCreated = () => {
+         setOpenModel(false);
+      };
+
+      window.addEventListener('accountCreated', handleAccountCreated);
+      
+      return () => {
+         window.removeEventListener('accountCreated', handleAccountCreated);
+      };
+   }, []);
 
    return (
       <div className={Style.NavBar}>
